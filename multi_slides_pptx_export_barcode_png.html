@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Myanmar ID Card Generator (Multi-Slide)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+    <style>
+        body {
+            font-family: 'Padauk', sans-serif;
+            background-color: #555;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 210mm;
+            box-sizing: border-box;
+        }
+
+        .btn-group {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #d24726;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #b03a1e;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+
+        /* A4 Page Container - Visual Preview */
+        /* Note: In HTML preview, we just show one long scrolling list if there are many cards */
+        .page {
+            width: 210mm;
+            /* Minimum height is one A4, but grows if there are many records */
+            min-height: 297mm;
+            background-color: white;
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* Auto-fill rows */
+            grid-auto-rows: 74.25mm;
+            /* Height of one card slot (approx 297mm / 4) */
+            padding: 2mm;
+            grid-gap: 2mm;
+            box-sizing: border-box;
+
+            background-size: 100% auto;
+            /* Repeat background for long lists or use specific CSS for print */
+            background-repeat: repeat-y;
+        }
+
+        .card {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Barcode Area */
+        .barcode-box {
+            position: absolute;
+            top: 29.5%;
+            width: 35%;
+            text-align: center;
+        }
+
+        .barcode-box canvas {
+            width: 90%;
+            height: auto;
+        }
+
+        /* Text Info Area */
+        .info-box {
+            position: absolute;
+            top: 65%;
+            left: 5%;
+            width: 90%;
+            font-size: 16px;
+            font-weight: bold;
+            line-height: 1.9;
+            color: #000;
+        }
+
+        /* CSS Grid Adjustments */
+        .card:nth-child(odd) .barcode-box {
+            left: 34%;
+            top: 29.5%;
+        }
+
+        .card:nth-child(even) .barcode-box {
+            left: 30.5%;
+            top: 29.5%;
+        }
+
+        .card:nth-child(even) .info-box {
+            left: 1%;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .label {
+            width: 38%;
+            color: #2e2e2e;
+        }
+
+        .val {
+            width: 62%;
+            padding-left: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls">
+        <h3>Step 1: Load Background Image</h3>
+        <input type="file" id="bgInput" accept="image/*" onchange="loadBackground(event)">
+
+        <div class="btn-group">
+            <h3>Step 2:</h3>
+            <button id="dlBtn" onclick="generatePPTXOptimized()" disabled>Download as .pptx</button>
+        </div>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">* Supports multiple slides (8 cards per slide)</p>
+    </div>
+
+    <div class="page" id="card-container">
+    </div>
+
+    <script>
+        // Global variable to store the background image data
+        let backgroundBase64 = null;
+
+        // Function to handle Image Upload
+        function loadBackground(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    backgroundBase64 = e.target.result;
+                    document.getElementById('card-container').style.backgroundImage = `url('${backgroundBase64}')`;
+                    document.getElementById('dlBtn').disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        const databaseData = [
+            {
+                "_id": "6925163442c50b0eb3bee8a4",
+                "userId": "691830735a36126c2671af3d",
+                "memberId": {
+                    "cardNo": "A-04140",
+                    "name": "ဦးချမ်းသာ",
+                    "phone": "၀၉၄၃၀၅၉၃၈၁",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04140_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၁၈၂၂၉၅",
+                    "gender": "male",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04140_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04140_idBack.jpg",
+                    "barcode_number": "MJ4560-25112025-A-04140",
+                    "userId": "691830735a36126c2671af3d",
+                    "createdAt": "2025-11-25T02:36:35.922Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "691830735a36126c2671af3d",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925166842c50b0eb3bee8b6",
+                "userId": "6915699ced3198105529c5e9",
+                "memberId": {
+                    "cardNo": "A-04141",
+                    "name": "ဒေါ်ယွန်းသီရိကျော်",
+                    "phone": "၀၉၇၆၇၃၆၆၆၈၀",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04141_profile.jpg",
+                    "idNumber": "၉/ပကခ(ပြု)၀၀၀၀၃၃",
+                    "gender": "female",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04141_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04141_idBack.jpg",
+                    "barcode_number": "MJ4561-25112025-A-04141",
+                    "userId": "6915699ced3198105529c5e9",
+                    "createdAt": "2025-11-25T02:37:27.999Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "6915699ced3198105529c5e9",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925168b42c50b0eb3bee8c8",
+                "userId": "691830735a36126c2671af3d",
+                "memberId": {
+                    "cardNo": "A-04142",
+                    "name": "ဒေါ်ဝေဝေလွင်",
+                    "phone": "၀၉၈၈၂၆၂၉၁၃၇",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04142_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၁၆၉၅၀",
+                    "gender": "female",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04142_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04142_idBack.jpg",
+                    "barcode_number": "MJ4562-25112025-A-04142",
+                    "userId": "691830735a36126c2671af3d",
+                    "createdAt": "2025-11-25T02:38:02.573Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "691830735a36126c2671af3d",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "692516e542c50b0eb3bee8db",
+                "userId": "69156aa9ed3198105529c666",
+                "memberId": {
+                    "cardNo": "A-04143",
+                    "name": "ဒေါ်ဇင်နွယ်ဦး",
+                    "phone": "၀၉၆၉၄၆၉၈၄၅၁",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04143_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၇၉၅၀၀",
+                    "gender": "female",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04143_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04143_idBack.jpg",
+                    "barcode_number": "MJ4563-25112025-A-04143",
+                    "userId": "69156aa9ed3198105529c666",
+                    "createdAt": "2025-11-25T02:39:32.487Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "69156aa9ed3198105529c666",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925172b42c50b0eb3bee8f4",
+                "userId": "691830735a36126c2671af3d",
+                "memberId": {
+                    "cardNo": "A-04144",
+                    "name": "ဦးဇော်ထက်အောင်",
+                    "phone": "၀၉၂၅၅၅၉၅၀၀၈",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04144_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၉၄၄၄၉",
+                    "gender": "male",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04144_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04144_idBack.jpg",
+                    "barcode_number": "MJ4564-25112025-A-04144",
+                    "userId": "691830735a36126c2671af3d",
+                    "createdAt": "2025-11-25T02:40:42.842Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "691830735a36126c2671af3d",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925175242c50b0eb3bee906",
+                "userId": "691558a593df0380dad5c359",
+                "memberId": {
+                    "cardNo": "A-04145",
+                    "name": "ဦးအောင်သိုက်",
+                    "phone": "၀၉၇၉၆၁၆၈၀၄၂",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04145_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၄၁၂၅၈",
+                    "gender": "male",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04145_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04145_idBack.jpg",
+                    "barcode_number": "MJ4565-25112025-A-04145",
+                    "userId": "691558a593df0380dad5c359",
+                    "createdAt": "2025-11-25T02:41:21.868Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "691558a593df0380dad5c359",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925177042c50b0eb3bee925",
+                "userId": "6915699ced3198105529c5e9",
+                "memberId": {
+                    "cardNo": "A-04146",
+                    "name": "ဒေါ်ကျောက်ရှို့မေ",
+                    "phone": "၀၉၇၈၉၈၉၉၅၈၈",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04146_profile.jpg",
+                    "idNumber": "၁၃/ကမန(ပြု)၀၀၀၅၄၂",
+                    "gender": "female",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04146_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04146_idBack.jpg",
+                    "barcode_number": "MJ4566-25112025-A-04146",
+                    "userId": "6915699ced3198105529c5e9",
+                    "createdAt": "2025-11-25T02:41:52.264Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "6915699ced3198105529c5e9",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925179d42c50b0eb3bee94e",
+                "userId": "69156aa9ed3198105529c666",
+                "memberId": {
+                    "cardNo": "A-04147",
+                    "name": "ဦးသူရိန်ထွန်း",
+                    "phone": "၀၉၇၈၈၉၆၁၁၁၀",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04147_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၇၆၄၂၁",
+                    "gender": "male",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04147_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04147_idBack.jpg",
+                    "barcode_number": "MJ4567-25112025-A-04147",
+                    "userId": "69156aa9ed3198105529c666",
+                    "createdAt": "2025-11-25T02:42:36.360Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "69156aa9ed3198105529c666",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "692517b342c50b0eb3bee99a",
+                "userId": "691830735a36126c2671af3d",
+                "memberId": {
+                    "cardNo": "A-04148",
+                    "name": "ဒေါ်သက်ထားရွှေစင်",
+                    "phone": "၀၉၂၆၈၈၇၅၁၁၂",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04148_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၇၁၂၄၃",
+                    "gender": "female",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04148_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04148_idBack.jpg",
+                    "barcode_number": "MJ4568-25112025-A-04148",
+                    "userId": "691830735a36126c2671af3d",
+                    "createdAt": "2025-11-25T02:42:59.275Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "691830735a36126c2671af3d",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925180a42c50b0eb3bee9e8",
+                "userId": "691558a593df0380dad5c359",
+                "memberId": {
+                    "cardNo": "A-04149",
+                    "name": "ဦးကျော်မင်းထွန်း",
+                    "phone": "၀၉၉၅၈၇၁၈၆၁၀၀",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04149_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၁၅၆၀၂",
+                    "gender": "male",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04149_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04149_idBack.jpg",
+                    "barcode_number": "MJ4569-25112025-A-04149",
+                    "userId": "691558a593df0380dad5c359",
+                    "createdAt": "2025-11-25T02:44:26.238Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "691558a593df0380dad5c359",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+            {
+                "_id": "6925180d42c50b0eb3bee9f3",
+                "userId": "69156b0bed3198105529c670",
+                "memberId": {
+                    "cardNo": "A-04150",
+                    "name": "ဦးစည်သူလွင်",
+                    "phone": "၀၉၇၉၀၅၀၂၀၀၇",
+                    "profile": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04150_profile.jpg",
+                    "idNumber": "၅/စကန(နိုင်)၂၈၇၀၀၂",
+                    "gender": "male",
+                    "memberType": "660d86913127bf69718ef862",
+                    "status": "verified",
+                    "nationality": "local",
+                    "idFront": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04150_idFront.jpg",
+                    "idBack": "https://elasticbeanstalk-us-east-1-335242194453.s3.us-east-1.amazonaws.com/A-04150_idBack.jpg",
+                    "barcode_number": "MJ4570-25112025-A-04150",
+                    "userId": "69156b0bed3198105529c670",
+                    "createdAt": "2025-11-25T02:44:28.485Z",
+                    "expireDate": "2026-12-01T00:00:00.000Z",
+                    "verifyBy": "69156b0bed3198105529c670",
+                    "isUnbanned": false,
+                    "__v": 0
+                },
+                "bookingDate": "2025-11-30T00:00:00.000Z",
+                "createdAt": "2025-11-22T09:54:33.859Z",
+                "status": "verified",
+                "__v": 0
+            },
+
+        ]
+        const container = document.getElementById('card-container');
+
+        // HTML Generation for DOM (Required for SVG creation)
+        function createCard(user) {
+            const safeId = user["memberId"]["barcode_number"].replace(/\s/g, '');
+            return `
+                <div class="card">s
+                    <div class="barcode-box">
+                        <canvas id="bc-${safeId}"></canvas>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-row">
+                            <div class="label">အမည်</div>
+                            <div class="val">- ${user["memberId"]["name"]}</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="label">မှတ်ပုံတင်အမှတ်</div>
+                            <div class="val">- ${user["memberId"]["idNumber"]}</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="label">သက်တမ်းကုန်ဆုံးရက်</div>
+                            <div class="val">- ${user["memberId"]["expireDate"].slice(0, 10)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 1. Render HTML
+        databaseData.forEach(user => {
+            container.innerHTML += createCard(user);
+        });
+
+        // 2. Generate Barcodes ( On Canvas )
+        databaseData.forEach(user => {
+            const safeId = user["memberId"]["barcode_number"].replace(/\s/g, '');
+            JsBarcode(`#bc-${safeId}`, user["memberId"]["barcode_number"], {
+                format: "CODE128",
+                lineColor: "#000",
+                width: 2,
+                height: 55,
+                displayValue: true,
+                fontSize: 12,
+                fontOptions: "bold",
+                textMargin: 2,
+                background: "rgba(255,255,255,0.8)"
+            });
+        });
+
+
+        // ==========================================
+        // OPTIMIZED PPTX GENERATION (Using Slide Masters)
+        // ==========================================
+        async function generatePPTXOptimized() {
+            if (!backgroundBase64) {
+                alert("Please select your background image first!");
+                return;
+            }
+
+            let pres = new PptxGenJS();
+
+            // 1. Setup A4 Page (Portrait)
+            pres.defineLayout({ name: 'A4', width: 8.27, height: 11.69 });
+            pres.layout = 'A4';
+
+            // 2. DEFINE SLIDE MASTER
+            // This embeds the background image ONLY ONCE in the file structure
+            pres.defineSlideMaster({
+                title: "ID_CARD_MASTER",
+                background: { data: backgroundBase64 } // Sets image as background
+            });
+
+            // Grid Configuration (Inches)
+            const startX_Left = 0.2;
+            const startX_Right = 4.2;
+            const startY = 0.2;
+            const cardHeight = 2.92;
+
+            let textOpts = { fontSize: 10.5, fontFace: "Calibri (Body)", color: "000000" };
+
+            // 1. DEFINE CUSTOM OFFSET (Change this number to move it lower)
+            const cardNoOffsetY = 0.25;
+
+            let cardTextOpts = {
+                fontSize: 10.5, fontFace: "Calibri (Body)", color: "000000",
+                align: "center",
+                valign: "top"
+            };
+
+            let currentSlide = null;
+
+            for (let i = 0; i < databaseData.length; i++) {
+                let user = databaseData[i];
+                // const expDate = new Date(member.expireDate).toLocaleDateString('en-GB');
+
+                // --- NEW SLIDE LOGIC ---
+                // Create new slide every 8th record
+                if (i % 8 === 0) {
+                    // Use the Master we defined above
+                    currentSlide = pres.addSlide({ masterName: "ID_CARD_MASTER" });
+                }
+
+                // --- COORDINATE CALCULATIONS ---
+                let localIndex = i % 8;
+                let col = localIndex % 2;
+                let row = Math.floor(localIndex / 2);
+
+                let cardX = (col === 0) ? startX_Left : startX_Right;
+                let cardY = startY + (row * cardHeight);
+
+                // --- BARCODE ---
+                const safeId = user["memberId"]["barcode_number"].replace(/\s/g, '');
+
+                // NEW: Extract PNG data from Canvas
+                const canvasNode = document.getElementById(`bc-${safeId}`);
+                const fullBase64 = canvasNode.toDataURL("image/png");
+
+
+                // const svgNode = document.getElementById(`bc-${safeId}`);
+                // const xml = new XMLSerializer().serializeToString(svgNode);
+                // const image64 = btoa(unescape(encodeURIComponent(xml)));
+                // const fullBase64 = 'data:image/svg+xml;base64,' + image64;
+
+                let bcOffsetX = (col === 0) ? 1.45 : 1.34;
+
+                // Barcode Image Dimensions
+                let bcW = 1.4;
+                let bcH = 0.4;
+                let bcX = cardX + bcOffsetX - 0.18;
+                let bcY = cardY + 0.68;
+
+                currentSlide.addImage({
+                    data: fullBase64,
+                    x: bcX,
+                    y: bcY,
+                    w: 1.4,
+                    h: 0.4
+                });
+
+                // --- CARD NO CENTERED UNDER BARCODE ---
+                currentSlide.addText(user["memberId"]["cardNo"], {
+                    x: bcX,
+                    //  APPLY OFFSET (Barcode Y + Barcode Height + Your Custom Space)
+                    y: bcY + bcH + cardNoOffsetY,
+                    w: bcW,
+                    h: 0.25,
+                    ...cardTextOpts,
+                });
+
+                // --- TEXT ---
+                let labelW = 1.5;
+                let valW = 2.0;
+                let textStartX = cardX + 0.1;
+                let textStartY = cardY + 1.9 - cardNoOffsetY;
+                let lineH = 0.25;
+
+
+                // Name
+                currentSlide.addText("အမည်", { x: textStartX, y: textStartY, w: labelW, h: 0.3, ...textOpts });
+                currentSlide.addText(`- ${user["memberId"]["name"]}`, { x: textStartX + labelW, y: textStartY, w: valW, h: 0.3, ...textOpts });
+
+                // NRC
+                currentSlide.addText("မှတ်ပုံတင်အမှတ်", { x: textStartX, y: textStartY + lineH, w: labelW, h: 0.3, ...textOpts });
+                currentSlide.addText(`- ${user["memberId"]["idNumber"]}`, { x: textStartX + labelW, y: textStartY + lineH, w: valW, h: 0.3, ...textOpts });
+
+                // Expiry
+                currentSlide.addText("သက်တမ်းကုန်ဆုံးရက်", { x: textStartX, y: textStartY + (lineH * 2), w: labelW, h: 0.3, ...textOpts });
+                currentSlide.addText(`- ${user["memberId"]["expireDate"].slice(0, 10)}`, { x: textStartX + labelW, y: textStartY + (lineH * 2), w: valW, h: 0.3, ...textOpts });
+            }
+
+            pres.writeFile({ fileName: "Myanmar_ID_Cards_Optimized.pptx" });
+        }
+
+    </script>
+</body>
+
+</html>
