@@ -269,7 +269,8 @@
         }
 
         // Data
-        const databaseData = []
+        const databaseData = [];
+
         const container = document.getElementById('card-container');
 
         function renderHTML() {
@@ -279,16 +280,23 @@
                 const cardNo = user.memberId.cardNo;
                 const safeId = user.memberId.barcode_number.replace(/\s/g, '');
 
+                // Check if image exists in memory
+                let hasImage = profileMap[cardNo] || profileMap[cardNo.replace(/\s/g, '')];
                 // Look for image in our map (Try exact match, then with/without spaces)
-                let profileImgSrc = profileMap[cardNo] || profileMap[cardNo.replace(/\s/g, '')] || "";
+                // let profileImgSrc = profileMap[cardNo] || profileMap[cardNo.replace(/\s/g, '')] || "";
+
+                // STATUS INDICATOR ONLY - No <img> tag
+                let statusHTML = hasImage
+                    ? `<span style="color:green; font-weight:bold; font-size:12px;">Image Ready<br>(Export Only)</span>`
+                    : `<span style="color:red; font-size:12px;">No Image Found</span>`;
 
                 // HTML for Image
-                let imgHTML = profileImgSrc ? `<img src="${profileImgSrc}" />` : `<span style='font-size:10px; color:red;'>No Img</span>`;
+                // let imgHTML = profileImgSrc ? `<img src="${profileImgSrc}" />` : `<span style='font-size:10px; color:red;'>No Img</span>`;
 
                 const cardHTML = `
                     <div class="card">
                         <div class="photo-box">
-                            ${imgHTML}
+                            ${statusHTML}   
                         </div>
                         <div class="barcode-box">
                             <canvas id="bc-${safeId}"></canvas>
@@ -475,7 +483,7 @@
                 currentSlide.addText(`- ${user["memberId"]["expireDate"].slice(0, 10)}`, { x: textStartX + labelW, y: textStartY + (lineH * 2), w: valW, h: 0.3, ...textOpts });
             }
 
-            pres.writeFile({ fileName: "A_04640_to_A_04829_total_190.pptx" });
+            pres.writeFile({ fileName: "A_07429_to_A_08021_total_593_optimized.pptx" });
         }
 
     </script>
