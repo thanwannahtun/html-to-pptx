@@ -10,7 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
         body {
             font-family: 'Padauk', sans-serif;
@@ -190,10 +192,12 @@
 
     <div class="controls">
 
-        <!-- <label>1.Load Excel Data </label>
-        <input type="file" id="excelInput" accept=".xlsx, .xls" onchange="loadExcel(event)" />
-        <span id="excelStatus" style="font-family: sans-serif; font-size: 14px; margin-left: 10px;"></span> -->
-
+        <div class="input-group">
+            <label>1. Load Excel Data</label>
+            <input type="file" id="excelInput" accept=".xlsx, .xls" onchange="loadExcel(event)" />
+            <span id="excelStatus"
+                style="font-family: sans-serif; font-size: 14px; margin-left: 10px; color: green;"></span>
+        </div>
 
         <div class="input-group">
             <label>2.Pick Background Template</label>
@@ -221,7 +225,9 @@
         let backgroundBase64 = null;
         let profileMap = {}; // Stores "A-03484" -> "data:image/jpg;base64..."
         // response data list for corresponding card-types ( "A" , "B" , "G" , "M" )
-        let databaseData = [] // 1. Load Background
+        let databaseData = []
+
+        // 1. Load Background
         function loadBackground(event) {
             const file = event.target.files[0];
             if (file) {
@@ -262,7 +268,6 @@
                     loadedCount++;
                     if (loadedCount >= files.length - 1) { // Approximate completion
                         document.getElementById('folderStatus').innerText = `Loaded ${Object.keys(profileMap).length} profiles.`;
-                        renderHTML(); // Re-render HTML to show images
                     }
                 };
                 reader.readAsDataURL(file);
@@ -275,8 +280,6 @@
             }
         }
 
-
-        // New function to parse Excel data
         function loadExcel(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -285,88 +288,83 @@
             reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-
-                // Get the first worksheet
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-
-                // Convert to JSON (header: 1 forces it to return an array of arrays)
                 const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                // Map the columns based on your image format
-                // Index 0: CardNo, Index 1: Name, Index 2: ID, Index 3: Phone, Index 4: ExpireDate
-                databaseData = rows.map(row => {
-                    if (!row[0]) return null; // Skip empty rows
+                // Filter out empty rows and the header row
+                databaseData = rows.slice(1).filter(row => row.length > 0 && row[1] !== "ကတ်အမှတ်").map(row => {
+                    // Correct Mapping based on your Image:
+                    // row[0]=စဉ်, row[1]=CardNo, row[2]=Name, row[3]=NRC, row[4]=Phone, row[5]=Exp
+                    const cardValue = String(row[1] || "").trim();
 
                     return {
                         memberId: {
-                            cardNo: String(row[0]).trim(),
-                            name: String(row[1] || "").trim(),
-                            idNumber: String(row[2] || "").trim(),
-                            phone: String(row[3] || "").trim(),
-                            expireDate: String(row[4] || ""),
-                            barcode_number: String(row[0]).trim() // Uses CardNo as Barcode
+                            cardNo: cardValue,
+                            name: String(row[2] || "").trim(),
+                            idNumber: String(row[3] || "").trim(),
+                            phone: String(row[4] || "").trim(),
+                            expireDate: excelDateToJSDate(row[5]), // Converts 46447.000... to YYYY-MM-DD
+                            barcode_number: cardValue,
+                            // Default values to match your required structure
+                            gender: "male",
+                            status: "verified",
+                            nationality: "local",
+                            isUnbanned: false
                         }
                     };
-                }).filter(item => item !== null);
+                });
 
-                document.getElementById('excelStatus').innerText = `✅ Loaded ${databaseData.length} cards from Excel.`;
-                renderHTML(); // Trigger the visual generation
+                console.log("🟢🟢🟢 Loaded Database Data:", databaseData);
+                document.getElementById('excelStatus').innerText = `✅ Loaded ${databaseData.length} cards.`;
+
+                // IMPORTANT: Call renderHTML here so the canvases exist before PPTX generation
+                renderHTML();
             };
             reader.readAsArrayBuffer(file);
         }
 
-        const container = document.getElementById('card-container');
+        // Helper to handle Excel's serial date format
+        function excelDateToJSDate(serial) {
+            if (!serial || isNaN(serial)) return String(serial || "");
+            const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+            return date.toISOString().split('T')[0]; // Returns "2027-03-01"
+        }
 
+        // 2. Modified renderHTML to handle errors
         function renderHTML() {
-            container.innerHTML = ''; // Clear existing
+            const container = document.getElementById('card-container');
+            container.innerHTML = '';
+
+            if (databaseData.length === 0) return;
 
             databaseData.forEach(user => {
                 const cardNo = user.memberId.cardNo;
-                const safeId = user.memberId.barcode_number.replace(/\s/g, '');
+                // Robust SafeID for Barcode
+                const safeId = cardNo.replace(/[^a-z0-9]/gi, '_');
+                // TODO:: const safeId = user.memberId.barcode_number.replace(/[^a-z0-9]/gi, '_');
 
-                // Check if image exists in memory
                 let hasImage = profileMap[cardNo] || profileMap[cardNo.replace(/\s/g, '')];
-                // Look for image in our map (Try exact match, then with/without spaces)
-                // let profileImgSrc = profileMap[cardNo] || profileMap[cardNo.replace(/\s/g, '')] || "";
-
-                // STATUS INDICATOR ONLY - No <img> tag
                 let statusHTML = hasImage
-                    ? `<span style="color:green; font-weight:bold; font-size:12px;">Image Ready<br>(Export Only)</span>`
+                    ? `<span style="color:green; font-weight:bold; font-size:12px;">Image Ready</span>`
                     : `<span style="color:red; font-size:12px;">No Image Found</span>`;
 
-                // HTML for Image
-                // let imgHTML = profileImgSrc ? `<img src="${profileImgSrc}" />` : `<span style='font-size:10px; color:red;'>No Img</span>`;
-
                 const cardHTML = `
-                    <div class="card">
-                        <div class="photo-box">
-                            ${statusHTML}   
-                        </div>
-                        <div class="barcode-box">
-                            <canvas id="bc-${safeId}"></canvas>
-                        </div>
-                        <div class="info-box">
-                            <div class="info-row">
-                                <div class="label">အမည်</div>
-                                <div class="val">- ${user.memberId.name}</div>
-                            </div>
-                            <div class="info-row">
-                                <div class="label">မှတ်ပုံတင်အမှတ်</div>
-                                <div class="val">- ${user.memberId.idNumber}</div>
-                            </div>
-                            <div class="info-row">
-                                <div class="label">သက်တမ်းကုန်ဆုံးရက်</div>
-                                <div class="val">- ${user.memberId.expireDate.slice(0, 10)}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                container.innerHTML += cardHTML;
-            });
+            <div class="card" style="border: 1px solid #ccc; margin: 10px; padding: 10px; display: inline-block; width: 350px;">
+                <div class="photo-box" style="width:100px; height:100px; border:1px solid #eee; display:flex; align-items:center; justify-content:center;">
+                    ${statusHTML}   
+                </div>
+                <div class="barcode-box">
+                    <canvas id="bc-${safeId}"></canvas>
+                </div>
+                <div class="info-box">
+                    <div><b>Name:</b> ${user.memberId.name}</div>
+                    <div><b>ID:</b> ${user.memberId.idNumber}</div>
+                    <div><b>Exp:</b> ${user.memberId.expireDate}</div>
+                </div>
+            </div>`;
+                container.insertAdjacentHTML('beforeend', cardHTML);
 
-            // Regenerate Barcodes
-            databaseData.forEach(user => {
-                const safeId = user.memberId.barcode_number.replace(/\s/g, '');
+                // Generate barcode
                 JsBarcode(`#bc-${safeId}`, user.memberId.barcode_number, {
                     format: "CODE128",
                     lineColor: "#000",
@@ -380,6 +378,8 @@
                 });
             });
         }
+        /// ------------ |
+        const container = document.getElementById('card-container');
 
         // Initial render
         renderHTML();
@@ -428,7 +428,7 @@
                 let user = databaseData[i];
                 let cardNo = user.memberId.cardNo;
 
-                // const expDate = new Date(member.expireDate).toLocaleDateString('en-GB');
+                const expireDate = new Date(user.memberId.expireDate).toLocaleDateString('en-GB');
 
                 // --- NEW SLIDE LOGIC ---
                 // Create new slide every 8th record
@@ -468,10 +468,16 @@
                 }
 
                 // --- BARCODE ---
-                const safeId = user["memberId"]["barcode_number"].replace(/\s/g, '');
+                // const safeId = user["memberId"]["barcode_number"].replace(/\s/g, '');
+                const safeId = user.memberId.cardNo.replace(/[^a-z0-9]/gi, '_'); // Match the new logic
+                console.log(`🟢🟢🟢 Generating barcode for: ${safeId}`,);
 
                 // NEW: Extract PNG data from Canvas
                 const canvasNode = document.getElementById(`bc-${safeId}`);
+                if (!canvasNode) {
+                    console.warn(`Missing canvas for ${safeId}`);
+                    continue; // Skip this card if canvas wasn't found to avoid crash
+                }
                 const fullBase64 = canvasNode.toDataURL("image/png");
 
 
